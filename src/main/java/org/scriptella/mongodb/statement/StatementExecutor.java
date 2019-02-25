@@ -36,8 +36,8 @@ public class StatementExecutor implements AutoCloseable {
     }
 
     public void executeScript(Resource resource, ParametersCallback parametersCallback) {
-        JsonStatementsParser statement = compile(resource);
-        statement.setParameters(parametersCallback);
+        JsonStatementsParser statement = compile(resource, parametersCallback);
+        //statement.setParameters(parametersCallback);
         List<MongoOperation> operations = statement.getOperations();
         for (MongoOperation operation : operations) {
             if (DEBUG) {
@@ -48,8 +48,8 @@ public class StatementExecutor implements AutoCloseable {
     }
 
     public void executeQuery(Resource resource, ParametersCallback parametersCallback, QueryCallback queryCallback) {
-        JsonStatementsParser statement = compile(resource);
-        statement.setParameters(parametersCallback);
+        JsonStatementsParser statement = compile(resource, parametersCallback);
+        //statement.setParameters(parametersCallback);
         List<MongoOperation> operations = statement.getOperations();
         for (MongoOperation operation : operations) {
             if (DEBUG) {
@@ -68,13 +68,29 @@ public class StatementExecutor implements AutoCloseable {
         }
     }
 
-
     JsonStatementsParser compile(Resource resource) {
         JsonStatementsParser statement = cache.get(resource);
         if (statement == null) {
             try {
                 statement = new JsonStatementsParser(IOUtils.toString(resource.open()));
                 statement.setTypesConverter(mongoDbTypesConverter);
+
+                if (DEBUG) {
+                    LOG.fine("Compiled statement " + statement);
+                }
+            } catch (IOException e) {
+                throw new MongoDbProviderException("Failed to read JSON resource", e);
+            }
+            cache.put(resource, statement);
+        }
+        return statement;
+    }
+
+    JsonStatementsParser compile(Resource resource, ParametersCallback parametersCallback) {
+        JsonStatementsParser statement = cache.get(resource);
+        if (statement == null) {
+            try {
+                statement = new JsonStatementsParser(IOUtils.toString(resource.open()), parametersCallback, mongoDbTypesConverter);
 
                 if (DEBUG) {
                     LOG.fine("Compiled statement " + statement);

@@ -24,6 +24,7 @@ public class DbCollectionFind extends MongoOperation {
     @Override
     public DBCursor executeQuery(MongoBridge mongoBridge) {
         DBObject arg = getArguments().isEmpty() ? null : (DBObject) getArguments().get(0);
+        System.out.println(arg.toString());
         return mongoBridge.find(getCollectionName(), arg);
     }
 }

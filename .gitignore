@@ -1,3 +1,5 @@
 .idea
-target
 *.iml
+target
+# http://maven.apache.org/plugins/maven-shade-plugin/shade-mojo.html#createDependencyReducedPom
+dependency-reduced-pom.xml

@@ -4,14 +4,18 @@ import com.mongodb.util.JSON;
 import com.mongodb.util.JSONCallback;
 import com.mongodb.util.JSONParseException;
 import org.bson.BSONObject;
+import org.bson.BasicBSONObject;
 import org.scriptella.mongodb.MongoDbProviderException;
 import org.scriptella.mongodb.operation.MongoOperation;
 import scriptella.expression.Expression;
 import scriptella.spi.ParametersCallback;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 /**
  * Represents a parser for Mongodb statements in JSON format
  * .
@@ -41,6 +45,10 @@ public class JsonStatementsParser {
         parse(json);
     }
 
+    public JsonStatementsParser(String json, ParametersCallback params, MongoDbTypesConverter typesConverter) throws MongoDbProviderException {
+        setTypesConverter(typesConverter);
+        parse(json, params);
+    }
     void parse(String json) {
         ParserCallback parserCallback = new ParserCallback();
 
@@ -67,8 +75,60 @@ public class JsonStatementsParser {
         }
     }
 
+    void parse(String json, final ParametersCallback params) {
+        ParserCallback parserCallback = new ParserCallback();
+
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+            HashMap<String,Object> result = mapper.readValue(json, HashMap.class);
+            evaluateExpression(result, params);
+
+            BSONObject bson = (BSONObject) JSON.parse(mapper.writeValueAsString(result));
+            //BSONObject bson = new BasicBSONObject();
+            //bson.putAll(result);
+            System.out.println(bson.toString());
+
+            operations = new ArrayList<MongoOperation>();
+            if (bson instanceof List) {
+                List<?> list = (List<?>) bson;
+                for (Object o : list) {
+                    if (o instanceof BSONObject) {
+                        operations.add(MongoOperation.from((BSONObject) o));
+                    } else {
+                        throw new MongoDbProviderException("A document was expected in the array of operation, but was " + o);
+                    }
+                }
+            } else {
+                operations.add(MongoOperation.from(bson));
+
+            }
+        } catch (Exception e) {
+            throw new MongoDbProviderException("Unable to parse JSON statement", e);
+        }
+    }
+
     public void setTypesConverter(MongoDbTypesConverter typesConverter) {
         this.typesConverter = typesConverter;
+    }
+
+    public void evaluateExpression(Map<String,Object> m, final ParametersCallback params) {
+        for (String key : m.keySet()) {
+            if ( m.get(key) instanceof String) {
+                String value = m.get(key).toString();
+                // if expression
+                if (value.startsWith("?") || value.startsWith("$")) {
+                    ExpressionMatcher matcher = new ExpressionMatcher();
+                    matcher.reset(value);
+                    matcher.setFrom(1);
+                    if (matcher.matches()) {
+                        m.put(key,Expression.compile(matcher.getMatchString()).evaluate(params));
+                    }
+                }
+            } else {
+                evaluateExpression((Map<String,Object>) m.get(key), params);
+            }
+        }
+
     }
 
     public void setParameters(final ParametersCallback params) {
@@ -125,7 +185,8 @@ public class JsonStatementsParser {
         public void gotString(String name, String v) {
             super.gotString(name, v);
 
-            if ((v != null) && v.startsWith("?")) {
+            //if ((v != null) && v.startsWith("?")) {
+            if ( (v != null) && (v.startsWith("?") || v.startsWith("$")) ) {
                 matcher.reset(v);
                 matcher.setFrom(1);
 

@@ -1,5 +1,6 @@
 package org.scriptella.mongodb.statement;
 
+import org.apache.tools.ant.util.FileUtils;
 import org.junit.Assert;
 import org.junit.Test;
 import scriptella.spi.support.MapParametersCallback;
@@ -13,6 +14,17 @@ import java.util.Map;
  * @author Fyodor Kupolov <scriptella@gmail.com>
  */
 public class JsonStatementsParserTest {
+    @Test
+    public void testParseV2() {
+        String json = "{\n" +
+                "        \"operation\": \"db.collection.find\",\n" +
+                "        \"collection\": \"Itslaw_Law_Judgments24399_\",\n" +
+                "        \"data\": { \"create_time\": { \"$gte\": { \"$date\": \"${text:convertToUTC(etl_timestamp,'yyyy-MM-dd HH:mm:ss')}\" } } }\n" +
+                //"        \"data\": { \"create_time\": { \"$gte\": { \"$date\": \"2019-02-01T00:00:00Z\" } } }\n" +
+                "}";
+        JsonStatementsParser s = new JsonStatementsParser(json);
+    }
+
     @Test
     public void testParse()
             throws Exception {
